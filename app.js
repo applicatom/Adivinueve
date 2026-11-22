@@ -284,7 +284,6 @@ function screenHome() {
   const sg = savedGame();
   show(`
   <div class="screen home">
-    <button class="circ editfab" id="edit" aria-label="Editar preguntas">${IC.pencil}</button>
     <div class="hero"><div class="logo">${LOGO}</div><div class="go">¡VAMOS!</div></div>
     <div class="rays"></div>
     <div class="menu">
@@ -297,7 +296,6 @@ function screenHome() {
   on('#cont', resumeGame);
   on('#play', screenSettings);
   on('#rules', () => screenRules(0));
-  on('#edit', screenEditor);
 }
 
 /* ============ reglas ============ */

@@ -1,4 +1,4 @@
-const CACHE = 'adivinueve-v7';
+const CACHE = 'adivinueve-v8';
 const THEME_FILES = ['arte', 'entretenimiento', 'deportes', 'historia', 'geografia', 'gastronomia', 'ciencia', 'sociedad'];
 const ASSETS = [
   './', './index.html', './app.js', './manifest.json', './icon.svg', './icon-180.png', './icon-512.png',
