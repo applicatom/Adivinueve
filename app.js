@@ -340,10 +340,12 @@ function screenHome() {
       ${sg ? `<button class="pbtn teal" id="cont">${IC.play}<span>CONTINUAR</span></button>` : ''}
       <button class="pbtn" id="play">${IC.play}<span>JUGAR</span></button>
       <button class="pbtn yellow" id="rules">${IC.scroll}<span>REGLAS</span></button>
+      ${sg ? `<button class="endlink" id="endsaved">Terminar la partida guardada</button>` : ''}
     </div>
     <div class="ver">${sg ? `partida guardada · ronda ${sg.G.round}/${(sg.S || S).rounds} · ` : ''}beta · ${usable(null).length} preguntas</div>
   </div>`);
   on('#cont', resumeGame);
+  on('#endsaved', () => confirmBox('¿Terminar la partida?', 'Se borrará la partida guardada y ya no podrás continuarla.', 'TERMINAR', () => { clearSavedGame(); screenHome(); toast('Partida terminada'); }, true));
   on('#play', screenSettings);
   on('#rules', () => screenRules(0));
 }
@@ -536,7 +538,14 @@ function toggleJoker(kind) {
   screenIntro();
 }
 function confirmQuit() {
-  confirmBox('¿Salir al inicio?', 'La partida se guarda: podrás continuarla desde el inicio.', 'SALIR', () => { stopTimer(); G = null; screenHome(); }, false);
+  modal(`<h3>¿Salir al inicio?</h3><p>La partida se guarda: podrás continuarla desde el inicio.</p>
+    <button class="fab text" id="ok">SALIR</button>
+    <button class="fab text pink" id="end">TERMINAR LA PARTIDA</button>
+    <button class="fab text ghost" id="no">Cancelar</button>`, m => {
+    m.querySelector('#no').onclick = () => m.remove();
+    m.querySelector('#ok').onclick = () => { m.remove(); stopTimer(); G = null; screenHome(); };
+    m.querySelector('#end').onclick = () => { m.remove(); stopTimer(); clearSavedGame(); G = null; screenHome(); toast('Partida terminada'); };
+  });
 }
 
 function screenPlay() {
