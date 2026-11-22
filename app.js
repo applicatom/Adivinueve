@@ -81,7 +81,7 @@ const THEMES = [
 const themeOf = id => THEMES.find(t => t.id === id) || { id, label: id, em: '❔' };
 const COLORS = ['#fbb040', '#14d4c4', '#f42464', '#54b4fc'];
 const DURATION = 60;
-const KEYS = { settings: 'adivinueve_settings', seen: 'adivinueve_seen', teams: 'adivinueve_teams', bank: 'adivinueve_bank_v1' };
+const KEYS = { settings: 'adivinueve_settings', seen: 'adivinueve_seen', teams: 'adivinueve_teams', bank: 'adivinueve_bank_v1', game: 'adivinueve_game' };
 
 /* ============ iconos ============ */
 const IC = {
@@ -248,20 +248,53 @@ const hdr = (title, left, right, cls) => `
 const backBtn = id => `<button class="circ sm" id="${id || 'back'}" aria-label="Atrás">${IC.back}</button>`;
 const homeBtn = id => `<button class="circ sm" id="${id || 'home'}" aria-label="Inicio">${IC.home}</button>`;
 
+/* ============ partida guardada (reanudar) ============ */
+function saveGame(screen) {
+  if (!G || !G.cur) return;
+  const c = G.cur;
+  save(KEYS.game, {
+    screen, S,
+    G: {
+      round: G.round, turn: G.turn, used: G.used, roundTheme: G.roundTheme, teams: G.teams,
+      cur: Object.assign({}, c, { found: [...c.found] }),
+      last: G.last ? { delta: G.last.delta, left: G.last.left } : null,
+    },
+  });
+}
+function savedGame() {
+  const s = load(KEYS.game, null);
+  if (!s || !s.G || !Array.isArray(s.G.teams) || !s.G.teams.length || !s.G.cur || !Array.isArray(s.G.cur.items)) return null;
+  return s;
+}
+function clearSavedGame() { try { localStorage.removeItem(KEYS.game); } catch {} }
+function resumeGame() {
+  const s = savedGame();
+  if (!s) return screenHome();
+  S = Object.assign({}, S, s.S);
+  const g = s.G;
+  G = { round: g.round, turn: g.turn, used: g.used || [], roundTheme: g.roundTheme, teams: g.teams, last: null,
+        cur: Object.assign({}, g.cur, { found: new Set(g.cur.found) }) };
+  if (s.screen === 'scores' && g.last) { G.last = { delta: g.last.delta, left: g.last.left, cur: G.cur }; screenScores(); }
+  else screenIntro();
+}
+
 /* ============ inicio ============ */
 function screenHome() {
   stopTimer(); G = null; setTeamColor(COLORS[0]);
+  const sg = savedGame();
   show(`
   <div class="screen home">
     <button class="circ editfab" id="edit" aria-label="Editar preguntas">${IC.pencil}</button>
     <div class="hero"><div class="logo">${LOGO}</div><div class="go">¡VAMOS!</div></div>
     <div class="rays"></div>
     <div class="menu">
+      ${sg ? `<button class="pbtn teal" id="cont">${IC.play}<span>CONTINUAR</span></button>` : ''}
       <button class="pbtn" id="play">${IC.play}<span>JUGAR</span></button>
       <button class="pbtn yellow" id="rules">${IC.scroll}<span>REGLAS</span></button>
     </div>
-    <div class="ver">beta · ${usable(null).length} preguntas</div>
+    <div class="ver">${sg ? `partida guardada · ronda ${sg.G.round}/${(sg.S || S).rounds} · ` : ''}beta · ${usable(null).length} preguntas</div>
   </div>`);
+  on('#cont', resumeGame);
   on('#play', screenSettings);
   on('#rules', () => screenRules(0));
   on('#edit', screenEditor);
@@ -421,6 +454,7 @@ const teamTxt = t => `<span style="color:${t.color === '#fbb040' ? '#e79a1f' : t
 function screenIntro() {
   const team = G.teams[G.turn], holder = G.teams[holderOf(G.turn)], th = themeOf(G.cur.theme);
   setTeamColor(team.color);
+  saveGame('intro');
   const J = team.jokers, c = G.cur;
   const busy = c.plus || c.mult || c.swapped;
   const dis = (k, avail) => (busy && !c[k]) || (!avail && !c[k]) ? 'disabled' : '';
@@ -454,7 +488,7 @@ function toggleJoker(kind) {
   screenIntro();
 }
 function confirmQuit() {
-  confirmBox('¿Salir de la partida?', 'Se perderá el progreso.', 'SALIR', () => { stopTimer(); G = null; screenHome(); }, true);
+  confirmBox('¿Salir al inicio?', 'La partida se guarda: podrás continuarla desde el inicio.', 'SALIR', () => { stopTimer(); G = null; screenHome(); }, false);
 }
 
 function screenPlay() {
@@ -530,6 +564,7 @@ function finishTurn() {
 
 function screenScores() {
   const { delta, cur } = G.last;
+  saveGame('scores');
   const max = Math.max(1, ...G.teams.map(t => t.score));
   const missed = cur.items.map((it, i) => ({ it, i })).filter(({ it, i }) => !it.trap && !cur.found.has(i));
   const trap = cur.items.find(i => i.trap);
@@ -598,11 +633,13 @@ function screenReview() {
     const d = turnScore();
     team.score += d - G.last.delta;
     G.last.delta = d;
+    saveGame('scores');
     $app.querySelector('#pts').textContent = ptsTxt();
   });
 }
 
 function screenEnd() {
+  clearSavedGame();
   const sorted = [...G.teams].sort((a, b) => b.score - a.score);
   const winners = sorted.filter(t => t.score === sorted[0].score);
   const max = Math.max(1, sorted[0].score);

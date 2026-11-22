@@ -1,8 +1,8 @@
-const CACHE = 'adivinueve-v6';
+const CACHE = 'adivinueve-v7';
+const THEME_FILES = ['arte', 'entretenimiento', 'deportes', 'historia', 'geografia', 'gastronomia', 'ciencia', 'sociedad'];
 const ASSETS = [
   './', './index.html', './app.js', './manifest.json', './icon.svg', './icon-180.png', './icon-512.png',
-  './questions/arte.js', './questions/entretenimiento.js', './questions/deportes.js', './questions/historia.js',
-  './questions/geografia.js', './questions/gastronomia.js', './questions/ciencia.js', './questions/sociedad.js',
+  ...THEME_FILES.flatMap(t => [`./questions/${t}.js`, `./questions/${t}2.js`]),
 ];
 
 self.addEventListener('install', e => {
