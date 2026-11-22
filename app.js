@@ -86,6 +86,7 @@ const KEYS = { settings: 'adivinueve_settings', seen: 'adivinueve_seen', teams: 
 /* ============ iconos ============ */
 const IC = {
   home: '<svg viewBox="0 0 24 24"><path d="M12 3 2 11.5h3V21h5.5v-6h3v6H19v-9.5h3z" fill="#fff"/></svg>',
+  eye: '<svg viewBox="0 0 24 24"><path d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.4" fill="#fff"/></svg>',
   back: '<svg viewBox="0 0 24 24"><path d="M20 12H6M12 5l-7 7 7 7" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   skip: '<svg viewBox="0 0 28 24"><path d="M2.5 3v18L13 12zM14 3v18l10.5-9z" fill="#fff" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M5 3.5v17L20 12z" fill="#fff" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/></svg>',
@@ -122,7 +123,7 @@ const BOMB_RATE = 50;
 let S = Object.assign({ nTeams: 2, rounds: 5, themes: THEMES.map(t => t.id), same: false, jokers: false }, load(KEYS.settings, {}));
 let teamCfg = load(KEYS.teams, []);
 let G = null;
-let timer = null, wake = null;
+let timer = null, wake = null, turnEnd = 0;
 let BANK = null;
 
 /* ============ banco de preguntas (guardado permanente) ============ */
@@ -494,6 +495,7 @@ function tapAnswer(el) {
 function startTimer() {
   stopTimer();
   const end = Date.now() + DURATION * 1000;
+  turnEnd = end;
   requestWake();
   let shown = DURATION;
   const tick = () => {
@@ -522,7 +524,7 @@ function finishTurn() {
   stopTimer(); vibrate(200);
   const delta = turnScore();
   G.teams[G.turn].score += delta;
-  G.last = { delta, cur: G.cur };
+  G.last = { delta, cur: G.cur, left: Math.max(0, Math.ceil((turnEnd - Date.now()) / 1000)) };
   screenScores();
 }
 
@@ -540,17 +542,51 @@ function screenScores() {
       ${G.teams.map(t => `<div class="sc" style="--c:${t.color}"><div class="n">${esc(t.name)}</div>
         <div class="l"><div class="tr"><i style="width:${Math.max(0, t.score) / max * 100}%"></i></div><div class="v">${t.score} PTS</div></div></div>`).join('')}
       ${cur.trapHit && trap ? `<div class="note">💥 Respuesta trampa: ${esc(trap.name)} (${trap.pts})</div>` : ''}
-      ${missed.length ? `<details class="missed"><summary>Ver ${missed.length} respuesta${missed.length > 1 ? 's' : ''} no encontrada${missed.length > 1 ? 's' : ''}</summary>
-        <ul>${missed.map(({ it }) => `<li>${esc(it.name)} <span>(${effPts(it)})</span></li>`).join('')}</ul></details>` : '<div class="note">🔥 ¡Las encontraron todas!</div>'}
+      ${missed.length ? '' : '<div class="note">🔥 ¡Las encontraron todas!</div>'}
+      <button class="pbtn teal" id="rev" style="margin-top:5rem;width:78rem;height:12rem;font-size:4.6rem;gap:2.6rem">${IC.eye}<span>REVISAR RESPUESTAS</span></button>
       <div style="flex:1"></div>
       <button class="fab" id="next" aria-label="Siguiente">${lastTurn && lastRound ? '<span style="font:700 5rem Quicksand;color:#fff">🏆</span>' : IC.skip}</button>
     </div></div>`);
   on('#edq', () => editQuestion(cur.qid, screenScores));
+  on('#rev', screenReview);
   on('#next', () => {
     if (lastTurn && lastRound) return screenEnd();
     if (lastTurn) { G.round++; G.turn = 0; } else G.turn++;
     if (!newTurn(false)) { toast('No hay más preguntas'); return screenEnd(); }
     screenIntro();
+  });
+}
+
+function screenReview() {
+  const team = G.teams[G.turn], c = G.cur, left = G.last.left;
+  setTeamColor(team.color);
+  const ptsTxt = () => `${G.last.delta > 0 ? '+' : ''}${G.last.delta} PTS`;
+  show(`<div class="screen">
+    <div class="topbar"><button class="circ l" id="back" aria-label="Volver">${IC.back}</button><div class="pill">${esc(team.name)}</div></div>
+    <div class="board">
+      <div class="qhead"><div class="qtext">${esc(c.q)}</div>
+        <div class="timer"><div>${lcd(left)}</div><div class="bar ${left <= 10 ? 'low' : ''}"><i style="width:${left / DURATION * 100}%"></i></div></div></div>
+      <div class="rows">${c.items.map((it, i) => `
+        <button class="ans ${it.trap ? 'trap' : ''} ${it.trap ? (c.trapHit ? 'hit' : '') : (c.found.has(i) ? 'on' : '')}" data-i="${i}">${it.trap ? IC.bomb : ''}<span class="t">${esc(it.name)}</span><span class="p">${effPts(it)}</span></button>`).join('')}</div>
+    </div>
+    <div class="revpts" id="pts">${ptsTxt()}</div>
+    <button class="fab text" id="ok">LISTO</button>
+  </div>`);
+  on('#back', screenScores);
+  on('#ok', screenScores);
+  onAll('.ans', el => {
+    const i = +el.dataset.i, it = c.items[i];
+    if (it.trap) {
+      c.trapHit = !c.trapHit;
+      el.classList.remove('hit'); void el.offsetWidth;
+      el.classList.toggle('hit', c.trapHit);
+      if (c.trapHit) { vibrate([60, 40, 90]); Snd.bomb(); }
+    } else if (c.found.has(i)) { c.found.delete(i); el.classList.remove('on'); }
+    else { c.found.add(i); el.classList.add('on'); vibrate(20); Snd.ding(); }
+    const d = turnScore();
+    team.score += d - G.last.delta;
+    G.last.delta = d;
+    $app.querySelector('#pts').textContent = ptsTxt();
   });
 }
 
