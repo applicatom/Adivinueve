@@ -535,8 +535,7 @@ function screenScores() {
   const trap = cur.items.find(i => i.trap);
   const lastTurn = G.turn === G.teams.length - 1, lastRound = G.round === S.rounds;
   show(`<div class="screen">
-    <div class="hdr center" style="height:max(34.3rem,calc(env(safe-area-inset-top) + 24rem))"><h1>PUNTUACIONES</h1>
-      <button class="circ sm" id="edq" style="position:absolute;right:4.3rem;bottom:8rem" aria-label="Editar pregunta">${IC.pencil}</button></div>
+    ${hdr('PUNTUACIONES', '', '', 'center')}
     <div class="body" style="padding-top:0">
       <div class="rtitle"><span style="color:#fff">RONDA ${G.round}/${S.rounds}</span><span style="color:#fff">${delta > 0 ? '+' : ''}${delta} PTS</span></div>
       ${G.teams.map(t => `<div class="sc" style="--c:${t.color}"><div class="n">${esc(t.name)}</div>
@@ -547,7 +546,6 @@ function screenScores() {
       <div style="flex:1"></div>
       <button class="fab" id="next" aria-label="Siguiente">${lastTurn && lastRound ? '<span style="font:700 5rem Quicksand;color:#fff">🏆</span>' : IC.skip}</button>
     </div></div>`);
-  on('#edq', () => editQuestion(cur.qid, screenScores));
   on('#rev', screenReview);
   on('#next', () => {
     if (lastTurn && lastRound) return screenEnd();
@@ -557,12 +555,25 @@ function screenScores() {
   });
 }
 
+function applyEditToTurn() {
+  const old = G.cur, q = BANK.items.find(x => x.id === old.qid);
+  if (!q || !q.a.length) return;
+  const foundNames = new Set([...old.found].map(i => old.items[i].name));
+  const fresh = buildCur(q, { plus: old.plus, mult: old.mult, swapped: old.swapped, bomb: old.bomb });
+  fresh.items.forEach((it, i) => { if (!it.trap && foundNames.has(it.name)) fresh.found.add(i); });
+  fresh.trapHit = old.trapHit && fresh.items.some(it => it.trap);
+  G.cur = fresh; G.last.cur = fresh;
+  const d = turnScore();
+  G.teams[G.turn].score += d - G.last.delta;
+  G.last.delta = d;
+}
+
 function screenReview() {
   const team = G.teams[G.turn], c = G.cur, left = G.last.left;
   setTeamColor(team.color);
   const ptsTxt = () => `${G.last.delta > 0 ? '+' : ''}${G.last.delta} PTS`;
   show(`<div class="screen">
-    <div class="topbar"><button class="circ l" id="back" aria-label="Volver">${IC.back}</button><div class="pill">${esc(team.name)}</div></div>
+    <div class="topbar"><button class="circ l" id="back" aria-label="Volver">${IC.back}</button><div class="pill">${esc(team.name)}</div><button class="circ r" id="edq" aria-label="Editar pregunta">${IC.pencil}</button></div>
     <div class="board">
       <div class="qhead"><div class="qtext">${esc(c.q)}</div>
         <div class="timer"><div>${lcd(left)}</div><div class="bar ${left <= 10 ? 'low' : ''}"><i style="width:${left / DURATION * 100}%"></i></div></div></div>
@@ -574,6 +585,7 @@ function screenReview() {
   </div>`);
   on('#back', screenScores);
   on('#ok', screenScores);
+  on('#edq', () => editQuestion(c.qid, () => { applyEditToTurn(); screenReview(); }));
   onAll('.ans', el => {
     const i = +el.dataset.i, it = c.items[i];
     if (it.trap) {

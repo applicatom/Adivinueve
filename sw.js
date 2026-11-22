@@ -1,4 +1,4 @@
-const CACHE = 'adivinueve-v5';
+const CACHE = 'adivinueve-v6';
 const ASSETS = [
   './', './index.html', './app.js', './manifest.json', './icon.svg', './icon-180.png', './icon-512.png',
   './questions/arte.js', './questions/entretenimiento.js', './questions/deportes.js', './questions/historia.js',
