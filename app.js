@@ -37,9 +37,59 @@ const Snd = (() => {
     ding: () => { tone(880, 0.14, 'sine', 0.32); tone(1320, 0.22, 'sine', 0.3, 0.09); },
     tick: urgent => tone(urgent ? 1500 : 1100, 0.055, 'square', urgent ? 0.2 : 0.13),
     buzzer: () => { tone(140, 0.95, 'sawtooth', 0.38); tone(147, 0.95, 'square', 0.22); },
-    bomb: () => { tone(230, 0.24, 'sawtooth', 0.38, 0, 90); tone(170, 0.42, 'sawtooth', 0.38, 0.2, 60); },
+    bomb: () => bombAlarm(get()),
   };
 })();
+
+/* alarme de bombe : klaxon grave « BOOOAARRH » + explosion sourde, sortie saturée puis compressée */
+function bombAlarm(c, dest) {
+  if (!c) return;
+  const t0 = c.currentTime + 0.01, out = dest || c.destination;
+  const comp = c.createDynamicsCompressor();
+  comp.threshold.value = -14; comp.ratio.value = 8; comp.attack.value = 0.003; comp.release.value = 0.25;
+  const master = c.createGain(); master.gain.value = 0.85;
+  comp.connect(master); master.connect(out);
+  const drive = c.createWaveShaper();
+  const curve = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(3.2 * x); }
+  drive.curve = curve; drive.oversample = '2x';
+  // klaxon : 4 dents de scie désaccordées qui glissent vers le grave, filtre « wah » ouvert puis refermé
+  const horn = c.createGain();
+  horn.gain.setValueAtTime(0.0001, t0);
+  horn.gain.exponentialRampToValueAtTime(0.7, t0 + 0.22);
+  horn.gain.setValueAtTime(0.7, t0 + 0.75);
+  horn.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.7);
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 6;
+  lp.frequency.setValueAtTime(260, t0);
+  lp.frequency.exponentialRampToValueAtTime(1500, t0 + 0.3);
+  lp.frequency.exponentialRampToValueAtTime(220, t0 + 1.6);
+  [[118, 0], [119.6, 7], [58, -5], [177, 4]].forEach(([f, det]) => {
+    const o = c.createOscillator(); o.type = 'sawtooth'; o.detune.value = det;
+    o.frequency.setValueAtTime(f * 1.25, t0);
+    o.frequency.exponentialRampToValueAtTime(f, t0 + 0.28);
+    o.frequency.exponentialRampToValueAtTime(f * 0.62, t0 + 1.7);
+    o.connect(lp); o.start(t0); o.stop(t0 + 1.75);
+  });
+  lp.connect(drive); drive.connect(horn); horn.connect(comp);
+  // trémolo d'alarme
+  const trem = c.createOscillator(), tg = c.createGain();
+  trem.frequency.value = 11; tg.gain.value = 0.12; trem.connect(tg); tg.connect(horn.gain);
+  trem.start(t0); trem.stop(t0 + 1.75);
+  // boom grave (sub)
+  const sub = c.createOscillator(), sg = c.createGain();
+  sub.type = 'sine'; sub.frequency.setValueAtTime(95, t0); sub.frequency.exponentialRampToValueAtTime(32, t0 + 0.9);
+  sg.gain.setValueAtTime(0.0001, t0); sg.gain.exponentialRampToValueAtTime(1, t0 + 0.012); sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.1);
+  sub.connect(sg); sg.connect(comp); sub.start(t0); sub.stop(t0 + 1.15);
+  // souffle d'explosion (bruit filtré qui s'éteint)
+  const len = Math.floor(c.sampleRate * 1.3), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const n = c.createBufferSource(); n.buffer = buf;
+  const nf = c.createBiquadFilter(); nf.type = 'lowpass';
+  nf.frequency.setValueAtTime(2600, t0); nf.frequency.exponentialRampToValueAtTime(110, t0 + 1.2);
+  const ng = c.createGain();
+  ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.9, t0 + 0.01); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.25);
+  n.connect(nf); nf.connect(ng); ng.connect(comp); n.start(t0);
+}
 
 function toast(msg) {
   document.querySelectorAll('.toast').forEach(t => t.remove());
