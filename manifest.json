@@ -1,0 +1,17 @@
+{
+  "name": "Adivinueve",
+  "short_name": "Adivinueve",
+  "description": "9 respuestas en 60 segundos: juego de mesa por equipos",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#7716b6",
+  "theme_color": "#7716b6",
+  "lang": "es-MX",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
