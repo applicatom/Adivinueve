@@ -66,7 +66,8 @@ svg{display:block}
 .hdr h1{font:700 5.7rem/1 'Quicksand',sans-serif;color:var(--purple);text-transform:uppercase;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-bottom:.4rem}
 .hdr.center h1{text-align:center}
 .hdr .circ{margin-bottom:.1rem}
-.body{padding:3.2rem 0 0;display:flex;flex-direction:column;flex:1}
+.body{padding:8.7rem 0 0;display:flex;flex-direction:column;flex:1}
+.body.low{padding-top:13rem}
 
 /* ---------- cartes blanches ---------- */
 .card{background:#fff;color:#000;border-radius:4.2rem;margin:0 3.5rem;box-shadow:0 1.2rem 0 var(--strip);position:relative}
@@ -75,7 +76,7 @@ svg{display:block}
 .row:first-child{border-top:0}
 .row .lbl{flex:1;display:flex;align-items:center;gap:1.6rem}
 .row .lbl small{display:block;font-size:2.4rem;color:#8a5bb0;font-weight:500;text-transform:none;margin-top:.5rem}
-.info{width:4.2rem;height:4.2rem;border-radius:50%;background:var(--field);color:#fff;font:700 2.8rem/4.2rem 'Quicksand',sans-serif;text-align:center;align-self:flex-start;margin-top:3.2rem}
+.info{text-transform:none;width:4.2rem;height:4.2rem;border-radius:50%;background:var(--field);color:#fff;font:700 2.8rem/4.2rem 'Quicksand',sans-serif;text-align:center;align-self:flex-start;margin-top:3.2rem}
 .step{display:flex;align-items:center;gap:2.4rem}
 .step .b{width:5.2rem;height:5.2rem;border-radius:50%;border:.4rem solid #8f8f8f;display:grid;place-items:center;color:#8f8f8f}
 .step .b.plus{border-color:#000;color:#000}
@@ -152,7 +153,9 @@ svg{display:block}
 .hold p{font:700 3.4rem/1.6 'Roboto',sans-serif;text-transform:uppercase}
 
 /* ---------- scores ---------- */
-.rtitle{display:flex;justify-content:space-between;align-items:center;padding:6.7rem 3.5rem 0;font:700 5rem/1 'Quicksand',sans-serif;text-transform:uppercase;height:18rem}
+.rtitle{display:flex;justify-content:space-between;align-items:center;padding:9.9rem 3.5rem 0;font:700 5rem/1 'Quicksand',sans-serif;text-transform:uppercase;height:21.2rem}
+.trophy{display:inline-block;animation:trophy 1.1s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes trophy{0%{transform:scale(.2) rotate(-25deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
 .rtitle .d{color:#fff}
 .sc{margin:0 3.3rem;background:#fff;color:#000;border-radius:4.2rem;box-shadow:0 1.2rem 0 #c396e9;height:19.5rem;padding:3rem 3.2rem 0}
 .sc+.sc{margin-top:5.8rem}
@@ -192,7 +195,7 @@ svg{display:block}
 /* ---------- règles (carrousel) ---------- */
 .slides{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;flex:1}
 .slides::-webkit-scrollbar{display:none}
-.slide{flex:none;width:92.4rem;scroll-snap-align:center;padding:0 4rem;display:flex;flex-direction:column;gap:5rem}
+.slide{flex:none;width:92.4rem;scroll-snap-align:center;padding:3.2rem 4rem 0;display:flex;flex-direction:column;gap:5rem}
 .slide .card{margin:0;padding:4.4rem 4.2rem;font:400 4.4rem/1.5 'Roboto',sans-serif;text-align:center}
 .slide .card b{color:var(--purple);font-weight:700}
 .slide .big{font:700 11rem/1 'Quicksand',sans-serif;color:var(--teal)}

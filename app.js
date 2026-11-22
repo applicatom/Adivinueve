@@ -9,6 +9,38 @@ const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); retur
 const vibrate = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
 const clone = o => JSON.parse(JSON.stringify(o));
 
+/* ============ sonidos (sintetizados, sin archivos) ============ */
+const Snd = (() => {
+  let ctx = null;
+  const get = () => {
+    try {
+      if (!ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) ctx = new AC(); }
+      if (ctx && ctx.state === 'suspended') ctx.resume();
+    } catch {}
+    return ctx;
+  };
+  const tone = (freq, dur, type, vol, when, freqEnd) => {
+    const c = get(); if (!c) return;
+    const t0 = c.currentTime + (when || 0);
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+    if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t0); o.stop(t0 + dur + 0.03);
+  };
+  return {
+    unlock: get,
+    ding: () => { tone(880, 0.14, 'sine', 0.32); tone(1320, 0.22, 'sine', 0.3, 0.09); },
+    tick: urgent => tone(urgent ? 1500 : 1100, 0.055, 'square', urgent ? 0.2 : 0.13),
+    buzzer: () => { tone(140, 0.95, 'sawtooth', 0.38); tone(147, 0.95, 'square', 0.22); },
+    bomb: () => { tone(230, 0.24, 'sawtooth', 0.38, 0, 90); tone(170, 0.42, 'sawtooth', 0.38, 0.2, 60); },
+  };
+})();
+
 function toast(msg) {
   document.querySelectorAll('.toast').forEach(t => t.remove());
   const t = document.createElement('div');
@@ -72,7 +104,7 @@ const LOGO = `
     <defs><radialGradient id="bg" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#ffe796"/><stop offset="1" stop-color="#fbb040"/></radialGradient></defs>
     <g stroke="#f9b233" stroke-width="6" stroke-linecap="round"><path d="M100 6v16M50 24l9 12M150 24l-9 12"/></g>
     <path d="M100 40c-33 0-58 23-58 53 0 21 11 34 22 45 6 6 9 13 9 21h54c0-8 3-15 9-21 11-11 22-24 22-45 0-30-25-53-58-53z" fill="url(#bg)"/>
-    <text x="100" y="122" text-anchor="middle" font-family="Quicksand,sans-serif" font-weight="700" font-size="92" fill="#fff">9</text>
+    <g fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"><circle cx="100" cy="82" r="18"/><path d="M118 82v14c0 15-10 25-28 26"/></g>
     <rect x="68" y="166" width="64" height="9" rx="4.5" fill="#14d4c4"/><rect x="72" y="180" width="56" height="9" rx="4.5" fill="#14d4c4"/><rect x="82" y="194" width="36" height="9" rx="4.5" fill="#14d4c4"/>
   </svg>
   <div class="q" style="font-size:12.4rem;font-weight:700;line-height:1;background:linear-gradient(90deg,#f42464 0%,#fbb040 100%);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.2rem">Adivinueve</div>`;
@@ -170,8 +202,42 @@ function refreshCur() {
 
 /* ============ pantallas: base ============ */
 function show(html) {
+  const c = document.getElementById('confetti'); if (c) c.remove();
   $app.innerHTML = html;
   window.scrollTo(0, 0);
+}
+
+function confetti() {
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = document.createElement('canvas');
+  cv.id = 'confetti';
+  cv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:40';
+  document.body.appendChild(cv);
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = cv.width = Math.round(window.innerWidth * dpr), H = cv.height = Math.round(window.innerHeight * dpr);
+  const ctx = cv.getContext('2d');
+  const cols = ['#fbb040', '#14d4c4', '#f42464', '#54b4fc', '#ffffff', '#ffd66b', '#ac54ec'];
+  const parts = Array.from({ length: 150 }, () => ({
+    x: Math.random() * W, y: -Math.random() * H * 0.7,
+    w: (6 + Math.random() * 8) * dpr, h: (10 + Math.random() * 10) * dpr,
+    vx: (Math.random() - 0.5) * 2 * dpr, vy: (2.2 + Math.random() * 3.6) * dpr,
+    rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.3, sw: Math.random() * 6.28,
+    c: cols[(Math.random() * cols.length) | 0],
+  }));
+  const t0 = performance.now();
+  const frame = now => {
+    if (!document.body.contains(cv)) return;
+    const t = now - t0;
+    ctx.clearRect(0, 0, W, H);
+    parts.forEach(p => {
+      p.sw += 0.05; p.x += p.vx + Math.sin(p.sw) * dpr; p.y += p.vy; p.rot += p.vr;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.c;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+      if (p.y > H + 20 && t < 4200) { p.y = -20; p.x = Math.random() * W; }
+    });
+    if (t < 7500) requestAnimationFrame(frame); else cv.remove();
+  };
+  requestAnimationFrame(frame);
 }
 const on = (sel, fn) => { const el = $app.querySelector(sel); if (el) el.onclick = fn; };
 const onAll = (sel, fn) => $app.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
@@ -207,16 +273,16 @@ function screenRules(start) {
   const slides = [
     `<div class="slide"><div class="txt" style="margin-top:12rem"><b>2 JUGADORES</b>son necesarios para jugar</div>${handsIll}
       <div class="card">El juego se juega en <b>un solo celular</b> que pasa de un equipo al otro después de cada turno</div></div>`,
-    `<div class="slide"><div class="card" style="margin-top:6rem;font:700 7.2rem/1.1 'Quicksand',sans-serif;color:#000">Encuentra las<br><b style="font-size:9.6rem">9 RESPUESTAS</b><br>en 60 segundos<div class="bar2"><i></i></div></div>
+    `<div class="slide"><div class="card" style="margin-top:4.5rem;font:700 7.2rem/1.1 'Quicksand',sans-serif;color:#000">Encuentra las<br><b style="font-size:9.6rem">9 RESPUESTAS</b><br>en 60 segundos<div class="bar2"><i></i></div></div>
       <div class="txt" style="margin-top:3rem">¡Cuidado con la respuesta trampa (falsa)!</div>
       <div class="bombs"><div style="width:11rem">${IC.bomb}</div><div style="width:18rem">${IC.bomb}</div><div style="width:11rem">${IC.bomb}</div></div>
       <div class="card" style="margin-top:4rem">El equipo que acumule <b>más puntos</b> gana la partida</div></div>`,
-    `<div class="slide"><div class="card" style="margin-top:6rem;font-size:5rem;line-height:1.5">Cuando es el turno de un equipo, <b>un miembro del equipo contrario</b> toma el celular para leer la pregunta en voz alta y <b>validar</b> las respuestas</div>${handsIll}</div>`,
+    `<div class="slide"><div class="card" style="margin-top:4.5rem;font-size:5rem;line-height:1.5">Cuando es el turno de un equipo, <b>un miembro del equipo contrario</b> toma el celular para leer la pregunta en voz alta y <b>validar</b> las respuestas</div>${handsIll}</div>`,
     `<div class="slide" style="gap:0"><div class="card exa">
         <div class="p t"><div class="nb">1</div><div class="bub">Juan lee la pregunta en voz alta</div><div class="face">😀</div></div>
         <div class="p o" style="flex-direction:row-reverse"><div class="nb" style="left:4rem">2</div><div class="bub">Sofía dice las respuestas en voz alta</div><div class="face" style="margin:0 auto 0 0">🤓</div></div>
         <div class="p t"><div class="nb">3</div><div class="bub">Juan valida las respuestas correctas de Sofía</div><div class="face">📱</div></div></div></div>`,
-    `<div class="slide"><div class="card" style="margin-top:4rem;text-align:left;font-weight:500;font-size:4.2rem">Los comodines sirven para darle sabor al juego.<br><br>Hay 3 comodines en total. Cada uno se puede usar una vez por partida y por equipo, y solo uno por turno: no se pueden juntar.
+    `<div class="slide"><div class="card" style="margin-top:6.5rem;text-align:left;font-weight:500;font-size:4.2rem">Los comodines sirven para darle sabor al juego.<br><br>Hay 3 comodines en total. Cada uno se puede usar una vez por partida y por equipo, y solo uno por turno: no se pueden juntar.
         <div style="display:grid;gap:4rem;margin-top:5rem;font-weight:700">
           <div style="display:flex;align-items:center;gap:4rem"><div class="jk" style="width:20rem;height:20rem;flex:none;box-shadow:0 1rem 0 var(--strip);background:var(--purple)"><b style="color:#fff">+2</b></div>Suma 2 puntos a cada respuesta</div>
           <div style="display:flex;align-items:center;gap:4rem"><div class="jk" style="width:20rem;height:20rem;flex:none;box-shadow:0 1rem 0 var(--strip);background:var(--purple)"><b style="color:#fff">×2</b></div>Multiplica por 2 los puntos de cada respuesta</div>
@@ -276,7 +342,7 @@ function screenThemes() {
   const all = S.themes.length === THEMES.length;
   show(`<div class="screen">
     ${hdr('TEMAS DE PREGUNTAS', backBtn(), '')}
-    <div class="body"><div class="card">
+    <div class="body low"><div class="card">
       <div class="row theme" data-t="*"><div class="lbl">Todos los temas</div><div class="sw ${all ? 'on' : ''}"></div></div>
       ${THEMES.map(t => `<div class="row theme" data-t="${t.id}"><div class="lbl"><span class="em">${t.em}</span>${esc(t.label)}</div><div class="sw ${S.themes.includes(t.id) ? 'on' : ''}"></div></div>`).join('')}
     </div></div></div>`);
@@ -305,7 +371,7 @@ function screenTeams() {
   const taken = new Set(teamCfg.slice(0, i).map(x => x.color));
   show(`<div class="screen">
     ${hdr('EQUIPOS', backBtn(), '')}
-    <div class="body"><div class="card tcard">
+    <div class="body low"><div class="card tcard">
       <div class="cnt">${i + 1}/${S.nTeams}</div>
       <div class="lab">Elige el color del equipo</div>
       <div class="cols">${COLORS.map(c => `<button class="col ${t.color === c ? 'sel' : ''} ${taken.has(c) ? 'taken' : ''}" style="background:${c}" data-c="${c}" aria-label="color"></button>`).join('')}</div>
@@ -373,7 +439,7 @@ function screenIntro() {
     <div class="hold">${IC.hold}<p>${teamTxt(holder)} tiene el celular.<br>${teamTxt(team)} responde la pregunta.</p></div>
   </div>`);
   on('#quit', confirmQuit);
-  on('#go', screenPlay);
+  on('#go', () => { Snd.unlock(); screenPlay(); });
   on('#edq', () => editQuestion(G.cur.qid, () => { refreshCur(); screenIntro(); }));
   on('#jp', () => toggleJoker('plus'));
   on('#jm', () => toggleJoker('mult'));
@@ -415,12 +481,12 @@ function tapAnswer(el) {
     c.trapHit = !c.trapHit;
     el.classList.remove('hit'); void el.offsetWidth;
     el.classList.toggle('hit', c.trapHit);
-    if (c.trapHit) vibrate([60, 40, 90]);
+    if (c.trapHit) { vibrate([60, 40, 90]); Snd.bomb(); }
     return;
   }
   if (c.found.has(i)) { c.found.delete(i); el.classList.remove('on'); }
   else {
-    c.found.add(i); el.classList.add('on'); vibrate(20);
+    c.found.add(i); el.classList.add('on'); vibrate(20); Snd.ding();
     if (c.found.size === realCount(c)) setTimeout(() => { if (timer) finishTurn(); }, 600);
   }
 }
@@ -435,10 +501,13 @@ function startTimer() {
     const fill = document.getElementById('fill');
     if (!fill) { stopTimer(); return; }
     const sec = Math.ceil(left);
-    if (sec !== shown) { shown = sec; document.getElementById('lcd').innerHTML = lcd(sec); }
+    if (sec !== shown) {
+      shown = sec; document.getElementById('lcd').innerHTML = lcd(sec);
+      if (sec >= 1 && sec <= 10) Snd.tick(sec <= 3);
+    }
     fill.style.width = (left / DURATION * 100) + '%';
     document.getElementById('bar').classList.toggle('low', left <= 10);
-    if (left <= 0) finishTurn();
+    if (left <= 0) { Snd.buzzer(); finishTurn(); }
   };
   timer = setInterval(tick, 200);
 }
@@ -493,8 +562,8 @@ function screenEnd() {
   show(`<div class="screen">
     ${hdr('RESULTADO', '', '', 'center')}
     <div class="body" style="padding-top:0">
-      <div class="rtitle" style="justify-content:center;font-size:6rem;height:24rem;padding-top:2rem;text-align:center;flex-direction:column;gap:1.6rem">
-        <span style="font-size:9rem">🏆</span><span>${winners.length > 1 ? '¡Empate!' : esc(winners[0].name) + ' gana'}</span></div>
+      <div class="rtitle" style="justify-content:center;font-size:6rem;height:31rem;padding-top:6rem;text-align:center;flex-direction:column;gap:1.6rem">
+        <span class="trophy" style="font-size:9rem">🏆</span><span>${winners.length > 1 ? '¡Empate!' : esc(winners[0].name) + ' gana'}</span></div>
       ${sorted.map(t => `<div class="sc" style="--c:${t.color}"><div class="n">${esc(t.name)}</div>
         <div class="l"><div class="tr"><i style="width:${Math.max(0, t.score) / max * 100}%"></i></div><div class="v">${t.score} PTS</div></div></div>`).join('')}
       <div style="flex:1"></div>
@@ -503,6 +572,7 @@ function screenEnd() {
     </div></div>`);
   on('#again', () => { G = null; screenSettings(); });
   on('#home', screenHome);
+  confetti();
 }
 
 /* ============ editor de preguntas ============ */

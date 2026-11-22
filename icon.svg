@@ -6,6 +6,6 @@
   <rect width="512" height="512" fill="url(#bg)"/>
   <g stroke="#ffd66b" stroke-width="16" stroke-linecap="round"><path d="M256 52v36M144 92l22 30M368 92l-22 30"/></g>
   <path d="M256 112c-82 0-142 58-142 132 0 52 28 84 55 112 15 15 22 33 22 52h130c0-19 7-37 22-52 27-28 55-60 55-112 0-74-60-132-142-132z" fill="url(#b)"/>
-  <text x="256" y="300" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-weight="700" font-size="230" fill="#fff">9</text>
+  <g transform="translate(256 244) scale(2.4) translate(-100 -93)" fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"><circle cx="100" cy="82" r="18"/><path d="M118 82v14c0 15-10 25-28 26"/></g>
   <rect x="190" y="410" width="132" height="20" rx="10" fill="#14d4c4"/><rect x="200" y="442" width="112" height="20" rx="10" fill="#14d4c4"/>
 </svg>
